@@ -1,1 +1,1 @@
-from core.rivercrossing import *
+from core.river_crossing import *
