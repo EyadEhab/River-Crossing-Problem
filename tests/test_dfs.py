@@ -1,23 +1,34 @@
 import unittest
-from search.dfs import solve
+from search.dfs import solve_dfs
 from core.river_crossing import INITIAL_STATE, GOAL_STATE, is_valid_state, get_successors
 
 class TestDFS(unittest.TestCase):
     def test_dfs_solution(self):
-        path, nodes_explored, time_ms = solve()
+        path_cost, execution_time, solution_path = solve_dfs()
         
-        self.assertGreater(len(path), 0)
-        self.assertEqual(path[0], INITIAL_STATE)
-        self.assertEqual(path[-1], GOAL_STATE)
+        self.assertGreater(path_cost, 0)
+        self.assertGreaterEqual(execution_time, 0)
+        self.assertGreater(len(solution_path), 0)
         
-        for state in path:
-            self.assertTrue(is_valid_state(state))
+        # Verify the first state in the path is the initial state
+        first_state, _, _ = solution_path[0]
+        self.assertEqual(first_state, INITIAL_STATE)
         
-        for i in range(len(path) - 1):
-            self.assertIn(path[i + 1], get_successors(path[i]))
+        # Verify the last state in the path is the goal state
+        _, _, last_state = solution_path[-1]
+        self.assertEqual(last_state, GOAL_STATE)
         
-        self.assertGreater(nodes_explored, 0)
-        self.assertGreaterEqual(time_ms, 0)
+        # Verify all states are valid
+        for current_state, move, next_state in solution_path:
+            self.assertTrue(is_valid_state(current_state))
+            self.assertTrue(is_valid_state(next_state))
+        
+        # Verify each transition is valid (next_state is a successor of current_state)
+        for current_state, move, next_state in solution_path:
+            self.assertIn(next_state, get_successors(current_state))
+        
+        # Path cost should equal the number of moves
+        self.assertEqual(path_cost, len(solution_path))
 
 if __name__ == '__main__':
     unittest.main()
