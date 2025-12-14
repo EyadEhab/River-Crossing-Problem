@@ -42,7 +42,7 @@ def solve_bfs():
                 move = _calculate_move(current_state, next_state)
                 parent[next_state] = (current_state, move)
 
-    execution_time = time.time() - start_time
+    execution_time = (time.time() - start_time) * 1000 # Convert to milliseconds
 
     if not found:
         return 0, execution_time, []

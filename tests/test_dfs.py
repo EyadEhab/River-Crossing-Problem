@@ -1,10 +1,14 @@
 import unittest
+import time
+import sys
 from search.dfs import solve_dfs
 from core.river_crossing import INITIAL_STATE, GOAL_STATE, is_valid_state, get_successors
 
 class TestDFS(unittest.TestCase):
     def test_dfs_solution(self):
         path_cost, execution_time, solution_path = solve_dfs()
+        print(f"\nDFS Execution Time: {execution_time:.2f} ms")
+        print(f"DFS Solution Path: {solution_path}")
         
         self.assertGreater(path_cost, 0)
         self.assertGreaterEqual(execution_time, 0)
@@ -31,4 +35,6 @@ class TestDFS(unittest.TestCase):
         self.assertEqual(path_cost, len(solution_path))
 
 if __name__ == '__main__':
-    unittest.main()
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TestDFS))
+    unittest.TextTestRunner(stream=sys.stdout).run(suite)

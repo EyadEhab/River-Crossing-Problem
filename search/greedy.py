@@ -30,7 +30,7 @@ def solve():
 
         if is_goal(current_state):
             end_time = time.time()
-            return path, end_time - start_time
+            return path, (end_time - start_time) * 1000
 
         for next_state in get_successors(current_state):
             if next_state not in visited:
@@ -38,4 +38,4 @@ def solve():
                 heapq.heappush(priority_queue, (heuristic(next_state), next_state, new_path))
 
     end_time = time.time()
-    return [], end_time - start_time  # No solution found
+    return [], (end_time - start_time) * 1000  # No solution found

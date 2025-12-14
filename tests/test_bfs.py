@@ -1,10 +1,14 @@
 import unittest
+import time
+import sys
 from search.bfs import solve_bfs
 from core.river_crossing import INITIAL_STATE, GOAL_STATE, is_valid_state, get_successors
 
 class TestBFS(unittest.TestCase):
     def test_bfs_solution(self):
         path_cost, execution_time, solution_path = solve_bfs()
+        print(f"\nBFS Execution Time: {execution_time:.2f} ms")
+        print(f"BFS Solution Path: {solution_path}")
 
         # Non-empty solution path
         self.assertGreater(len(solution_path), 0)
@@ -41,4 +45,9 @@ class TestBFS(unittest.TestCase):
             self.assertEqual(len(next_state), 3)
 
 if __name__ == '__main__':
-    unittest.main()
+    start_time = time.time()
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TestBFS))
+    unittest.TextTestRunner(stream=sys.stdout).run(suite)
+    end_time = time.time()
+    print(f"\nTotal execution time: {(end_time - start_time) * 1000:.2f} ms")

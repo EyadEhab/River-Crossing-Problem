@@ -88,4 +88,6 @@ class TestRiverCrossingCore(unittest.TestCase):
                     self.assertLessEqual(h_val, 3.0)
 
 if __name__ == '__main__':
-    unittest.main()
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TestRiverCrossingCore))
+    unittest.TextTestRunner().run(suite)
