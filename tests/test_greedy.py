@@ -4,7 +4,7 @@ from core.river_crossing import INITIAL_STATE, GOAL_STATE, is_valid_state, get_s
 
 class TestGreedy(unittest.TestCase):
     def test_greedy_solution(self):
-        path, nodes_explored, time_ms = solve()
+        path, time_sec = solve()
         
         self.assertGreater(len(path), 0)
         self.assertEqual(path[0], INITIAL_STATE)
@@ -16,8 +16,7 @@ class TestGreedy(unittest.TestCase):
         for i in range(len(path) - 1):
             self.assertIn(path[i + 1], get_successors(path[i]))
         
-        self.assertGreater(nodes_explored, 0)
-        self.assertGreaterEqual(time_ms, 0)
+        self.assertGreaterEqual(time_sec, 0)
 
 if __name__ == '__main__':
     unittest.main()
