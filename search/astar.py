@@ -14,7 +14,7 @@ def _reconstruct(came_from: Dict[Tuple[int, int, int], Optional[Tuple[int, int, 
     return path
 
 
-def solve() -> Tuple[List[Tuple[int, int, int]], int, float]:
+def solve() -> Tuple[int, List[Tuple[int, int, int]], float]:
     start_time = time.perf_counter()
     open_heap: List[Tuple[float, Tuple[int, int, int]]] = []
     came_from: Dict[Tuple[int, int, int], Optional[Tuple[int, int, int]]] = {INITIAL_STATE: None}

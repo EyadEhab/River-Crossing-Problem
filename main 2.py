@@ -9,7 +9,6 @@ from typing import List, Tuple
 # Import all solvers
 from search.bfs import solve as bfs_solve
 from search.dfs import solve as dfs_solve
-from search.iddfs import solve as iddfs_solve
 from search.astar import solve as astar_solve
 from search.greedy import solve as greedy_solve
 from core.river_crossing import GOAL_STATE, INITIAL_STATE, MOVES
@@ -31,7 +30,7 @@ def reconstruct_moves(path: List[Tuple[int, int, int]]) -> List[Tuple[int, int]]
     return moves
 
 
-def print_solution(path: List[Tuple[int, int, int]], g_n=None, time_sec=0.0):
+def print_solution(path: List[Tuple[int, int, int]], nodes_explored: int = 0, time_sec: float = 0.0):
     if not path:
         print("❌ No solution found.")
         return
@@ -57,45 +56,37 @@ def print_solution(path: List[Tuple[int, int, int]], g_n=None, time_sec=0.0):
     path_length = len(path) - 1
     print("\n📊 Performance Metrics:")
     print(f"  • Path Length (moves): {path_length}")
-    if g_n is not None:
-        print(f"  • Nodes Explored (g(n)): {g_n}")
-    else:
-        print(f"  • Nodes Explored (g(n)): N/A (Greedy does not track this)")
+    print(f"  • Nodes Explored: {nodes_explored}")
     print(f"  • Execution Time: {time_sec * 1000:.2f} ms")
 
 
 def main():
     algorithms = {
-        "1": ("BFS", bfs_solve, True),
-        "2": ("DFS", dfs_solve, True),
-        "3": ("IDDFS", iddfs_solve, True),
-        "4": ("A*", astar_solve, True),
-        "5": ("Greedy", greedy_solve, False),  # No g(n)
+        "1": ("BFS", bfs_solve),
+        "2": ("DFS", dfs_solve),
+        "3": ("A*", astar_solve),
+        "4": ("Greedy", greedy_solve),
     }
 
     print("🌊 River Crossing Problem Solver")
     print("Select a search algorithm to run:\n")
 
-    for key, (name, _, _) in algorithms.items():
+    for key, (name, _) in algorithms.items():
         print(f"  {key}. {name}")
 
-    choice = input("\nEnter your choice (1–5): ").strip()
+    choice = input("\nEnter your choice (1–4): ").strip()
 
     if choice not in algorithms:
-        print("❌ Invalid choice. Please run again and select 1–5.")
+        print("❌ Invalid choice. Please run again and select 1–4.")
         return
 
-    algo_name, solver, returns_gn = algorithms[choice]
+    algo_name, solver = algorithms[choice]
 
     print(f"\n▶️  Running {algo_name}...\n")
 
     try:
-        if returns_gn:
-            path, g_n, time_sec = solver()
-            print_solution(path, g_n, time_sec)
-        else:
-            path, time_sec = solver()
-            print_solution(path, None, time_sec)
+        path, nodes_explored, time_sec = solver()
+        print_solution(path, nodes_explored, time_sec)
     except Exception as e:
         print(f"❌ Error while running {algo_name}: {e}")
         import traceback

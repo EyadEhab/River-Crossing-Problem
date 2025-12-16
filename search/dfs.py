@@ -5,15 +5,15 @@ from core.river_crossing import *
 import time
 
 
-def solve_dfs():
+def solve():
     """
     Solve the Missionaries and Cannibals problem using Depth-First Search (DFS).
 
     Returns:
-        tuple: (path_cost, execution_time, solution_path)
-            - path_cost: number of moves in the solution (g(n))
-            - execution_time: wall-clock time in seconds
-            - solution_path: list of tuples [(current_state, move, next_state), ...]
+        tuple: (nodes_explored, solution_path, execution_time)
+            - nodes_explored: The number of nodes explored during the search.
+            - solution_path: list of states [state1, state2, ...]
+            - execution_time: wall-clock time in milliseconds
     """
     start_time = time.time()
 
@@ -21,12 +21,14 @@ def solve_dfs():
     stack = [INITIAL_STATE]
     visited = set[tuple[Literal[0, 1, 2, 3], Literal[0, 1, 2, 3], Literal[0, 1]]]([INITIAL_STATE])
     parent = {INITIAL_STATE: None}  # parent[state] = (prev_state, move_taken)
+    nodes_explored = 0
 
     found = False
     goal_state = None
 
     while stack:
         current_state = stack.pop()
+        nodes_explored += 1
 
         if is_goal(current_state):
             found = True
@@ -44,13 +46,12 @@ def solve_dfs():
     execution_time = (time.time() - start_time) * 1000 # Convert to milliseconds
 
     if not found:
-        return 0, execution_time, []
+        return nodes_explored, [], execution_time
 
     # Reconstruct the solution path
     solution_path = _reconstruct_path(parent, goal_state)
-    path_cost = len(solution_path)
 
-    return path_cost, execution_time, solution_path
+    return solution_path, nodes_explored, execution_time
 
 
 def _calculate_move(from_state, to_state):
@@ -82,14 +83,14 @@ def _reconstruct_path(parent, goal_state):
     Reconstruct the solution path from INITIAL_STATE to goal_state using the parent mapping.
 
     Returns:
-        list: [(current_state, move, next_state), ...]
+        list: [state1, state2, ...]
     """
-    path = []
+    path = [goal_state]
     current = goal_state
 
     while parent[current] is not None:
         prev_state, move = parent[current]
-        path.append((prev_state, move, current))
+        path.append(prev_state)
         current = prev_state
 
     # Reverse to get path from start to goal

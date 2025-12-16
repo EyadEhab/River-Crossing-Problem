@@ -9,16 +9,16 @@ def solve():
     Solve the Missionaries and Cannibals problem using Greedy Best-First Search.
 
     Returns:
-        tuple: (path, time_sec)
+        tuple: (nodes_explored, path, time_sec)
+            - nodes_explored: The number of nodes explored during the search.
             - path: A list of states representing the path from INITIAL_STATE to GOAL_STATE.
             - time_sec: The execution time in seconds.
     """
     start_time = time.time()
 
-    # Priority queue to store (heuristic_value, state, path)
-    # The path is stored to reconstruct the solution easily
     priority_queue = [(heuristic(INITIAL_STATE), INITIAL_STATE, [INITIAL_STATE])]
     visited = set()
+    nodes_explored = 0
 
     while priority_queue:
         h_val, current_state, path = heapq.heappop(priority_queue)
@@ -27,10 +27,11 @@ def solve():
             continue
 
         visited.add(current_state)
+        nodes_explored += 1
 
         if is_goal(current_state):
             end_time = time.time()
-            return path, (end_time - start_time) * 1000
+            return path, nodes_explored, (end_time - start_time) * 1000
 
         for next_state in get_successors(current_state):
             if next_state not in visited:
@@ -38,4 +39,4 @@ def solve():
                 heapq.heappush(priority_queue, (heuristic(next_state), next_state, new_path))
 
     end_time = time.time()
-    return [], (end_time - start_time) * 1000  # No solution found
+    return [], nodes_explored, (end_time - start_time) * 1000  # No solution found
