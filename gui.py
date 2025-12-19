@@ -390,59 +390,76 @@ class RiverCrossingApp:
             movers.append({"type": "C", "bank_idx": src_c_start_idx + i, "seat_idx": seat_indices[seat_idx]})
             seat_idx += 1
 
-        # Phase 1: Embark
-        self.run_embark(curr_state, next_state, movers, direction, 0.0, path, index)
+        # Move Description
+        parts = []
+        if m_moved_count > 0:
+            parts.append(f"{m_moved_count} Missionary" if m_moved_count == 1 else f"{m_moved_count} Missionaries")
+        if c_moved_count > 0:
+            parts.append(f"{c_moved_count} Cannibal" if c_moved_count == 1 else f"{c_moved_count} Cannibals")
+            
+        move_text = ", ".join(parts)
+        if direction == "LtoR":
+            move_text += " -> Right"
+        else:
+            move_text += " -> Left"
 
-    def run_embark(self, curr_state, next_state, movers, direction, progress, path, index):
+        # Phase 1: Embark
+        self.run_embark(curr_state, next_state, movers, direction, 0.0, path, index, move_text)
+
+    def run_embark(self, curr_state, next_state, movers, direction, progress, path, index, move_text):
         if not self.is_animating: return
         if self.is_paused:
-            self.root.after(100, lambda: self.run_embark(curr_state, next_state, movers, direction, progress, path, index))
+            self.root.after(100, lambda: self.run_embark(curr_state, next_state, movers, direction, progress, path, index, move_text))
             return
 
         if progress > 1.0: progress = 1.0
         
         # Draw Embarking
-        self.draw_scene_phase("embark", curr_state, movers, direction, progress)
+        self.draw_scene_phase("embark", curr_state, movers, direction, progress, move_text)
         
         if progress < 1.0:
-            self.root.after(20, lambda: self.run_embark(curr_state, next_state, movers, direction, progress + 0.05, path, index))
+            self.root.after(20, lambda: self.run_embark(curr_state, next_state, movers, direction, progress + 0.05, path, index, move_text))
         else:
             # Done, start Crossing
-            self.run_cross(curr_state, next_state, movers, direction, 0.0, path, index)
+            self.run_cross(curr_state, next_state, movers, direction, 0.0, path, index, move_text)
 
-    def run_cross(self, curr_state, next_state, movers, direction, progress, path, index):
+    def run_cross(self, curr_state, next_state, movers, direction, progress, path, index, move_text):
         if not self.is_animating: return
         if self.is_paused:
-            self.root.after(100, lambda: self.run_cross(curr_state, next_state, movers, direction, progress, path, index))
+            self.root.after(100, lambda: self.run_cross(curr_state, next_state, movers, direction, progress, path, index, move_text))
             return
 
         if progress > 1.0: progress = 1.0
         
-        self.draw_scene_phase("cross", curr_state, movers, direction, progress)
+        self.draw_scene_phase("cross", curr_state, movers, direction, progress, move_text)
         
         if progress < 1.0:
-            self.root.after(20, lambda: self.run_cross(curr_state, next_state, movers, direction, progress + 0.02, path, index))
+            self.root.after(20, lambda: self.run_cross(curr_state, next_state, movers, direction, progress + 0.02, path, index, move_text))
         else:
-            self.run_disembark(curr_state, next_state, movers, direction, 0.0, path, index)
+            self.run_disembark(curr_state, next_state, movers, direction, 0.0, path, index, move_text)
 
-    def run_disembark(self, curr_state, next_state, movers, direction, progress, path, index):
+    def run_disembark(self, curr_state, next_state, movers, direction, progress, path, index, move_text):
         if not self.is_animating: return
         if self.is_paused:
-            self.root.after(100, lambda: self.run_disembark(curr_state, next_state, movers, direction, progress, path, index))
+            self.root.after(100, lambda: self.run_disembark(curr_state, next_state, movers, direction, progress, path, index, move_text))
             return
 
         if progress > 1.0: progress = 1.0
         
-        self.draw_scene_phase("disembark", curr_state, movers, direction, progress)
+        self.draw_scene_phase("disembark", curr_state, movers, direction, progress, move_text)
         
         if progress < 1.0:
-            self.root.after(20, lambda: self.run_disembark(curr_state, next_state, movers, direction, progress + 0.05, path, index))
+            self.root.after(20, lambda: self.run_disembark(curr_state, next_state, movers, direction, progress + 0.05, path, index, move_text))
         else:
             # Finished full step
             self.animate_sequence(path, index + 1)
 
-    def draw_scene_phase(self, phase, state, movers, direction, progress):
+    def draw_scene_phase(self, phase, state, movers, direction, progress, move_text=""):
         self.canvas.delete("entity")
+        
+        # Draw Move Text in Sky
+        if move_text:
+            self.canvas.create_text(400, 280, text=move_text, font=("Helvetica", 16, "bold"), fill="black", tags="entity")
         
         m_left, c_left, boat_pos = state
         
