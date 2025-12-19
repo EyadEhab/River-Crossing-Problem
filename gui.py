@@ -1,265 +1,629 @@
-import pygame
-import sys
+import tkinter as tk
+from tkinter import messagebox
+import time
+import math
+from typing import List, Tuple
+
+# Import solvers
 from search.bfs import solve as bfs_solve
 from search.dfs import solve as dfs_solve
 from search.astar import solve as astar_solve
 from search.greedy import solve as greedy_solve
 
-# Initialize Pygame
-pygame.init()
-WIDTH, HEIGHT = 1000, 700
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("River Crossing Problem Solver")
-clock = pygame.time.Clock()
+from core.river_crossing import GOAL_STATE, INITIAL_STATE
 
 # Colors
-WHITE = (255, 255, 255)
-BLUE = (100, 150, 255)      # River
-GREEN = (100, 200, 100)     # Banks
-BLACK = (0, 0, 0)
-GRAY = (200, 200, 200)
+COLOR_SKY = "#87CEEB"
+COLOR_RIVER = "#4682B4"
+COLOR_LAND = "#228B22"
+COLOR_BOAT = "#8B4513"
+COLOR_MISSIONARY = "#FFD700"  # Gold
+COLOR_CANNIBAL = "#FF4500"    # OrangeRed
+COLOR_TEXT = "#FFFFFF"
 
-# Font
-font = pygame.font.SysFont(None, 28)
+class RiverCrossingApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("River Crossing Problem Solver")
+        self.root.geometry("800x600")
+        self.root.resizable(False, False)
 
-# State & Animation
-current_path = []
-current_step = 0
-is_playing = False
-is_paused = False # New variable for pause/resume
-speed = 1000  # ms per step
-last_move_time = 0
+        self.canvas = tk.Canvas(root, width=800, height=600, highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
 
-# Game states
-MENU = 0
-SIMULATION = 1
-game_state = MENU
+        self.solvers = {
+            "BFS": bfs_solve,
+            "DFS": dfs_solve,
+            "A*": astar_solve,
+            "Greedy": greedy_solve
+        }
 
-# Algorithm mapping
-ALGORITHMS = {
-    "BFS": bfs_solve,
-    "DFS": dfs_solve,
-    "A*": astar_solve,
-    "Greedy": greedy_solve,
-}
-selected_algo = "BFS"
-metrics = {"path_len": "--", "nodes": "--", "time": "--"}
-algo_names = list(ALGORITHMS.keys())
-current_algo_index = 0
-
-def draw_scene(current_state, previous_state=None, animation_progress=0.0):
-    M_L, C_L, B = current_state
-    screen.fill(WHITE)
-
-    # Draw banks
-    pygame.draw.rect(screen, GREEN, (0, 0, WIDTH//3, HEIGHT))
-    pygame.draw.rect(screen, GREEN, (2*WIDTH//3, 0, WIDTH//3, HEIGHT))
-
-    # Draw river
-    pygame.draw.rect(screen, BLUE, (WIDTH//3, 0, WIDTH//3, HEIGHT))
-
-    # Draw state text
-    state_text = font.render(f"State: ({M_L}, {C_L}, {'L' if B == 1 else 'R'})", True, BLACK)
-    screen.blit(state_text, (10, 10))
-
-    # Calculate right bank counts
-    M_R = 3 - M_L
-    C_R = 3 - C_L
-
-    # Determine boat position
-    boat_start_x = WIDTH // 3 + 50 if B == 1 else 2 * WIDTH // 3 - 100
-    boat_end_x = WIDTH // 3 + 50 if B == 0 else 2 * WIDTH // 3 - 100
-
-    if previous_state and current_state[2] != previous_state[2]: # Boat is moving
-        # Interpolate boat position
-        if current_state[2] == 0: # Moving from Left to Right
-            boat_pos_x = boat_start_x + (boat_end_x - boat_start_x) * animation_progress
-        else: # Moving from Right to Left
-            boat_pos_x = boat_start_x - (boat_start_x - boat_end_x) * animation_progress
-    else:
-        boat_pos_x = boat_start_x
-
-    # Draw boat
-    boat_rect = pygame.Rect(boat_pos_x, HEIGHT - 100, 100, 30)
-    pygame.draw.rect(screen, (139, 69, 19), boat_rect) # Brown boat
-
-    # Positions for characters
-    left_bank_positions_m = [(50 + i * 30, HEIGHT - 120) for i in range(3)]
-    left_bank_positions_c = [(50 + i * 30, HEIGHT - 150) for i in range(3)]
-    right_bank_positions_m = [(WIDTH - 80 - i * 30, HEIGHT - 120) for i in range(3)]
-    right_bank_positions_c = [(WIDTH - 80 - i * 30, HEIGHT - 150) for i in range(3)]
-
-    boat_positions_m = [(boat_pos_x + 10 + i * 30, HEIGHT - 80) for i in range(2)]
-    boat_positions_c = [(boat_pos_x + 10 + i * 30, HEIGHT - 50) for i in range(2)]
-
-    # Determine who is on the boat for animation
-    m_on_boat = 0
-    c_on_boat = 0
-    if previous_state:
-        prev_M_L, prev_C_L, prev_B = previous_state
-        if B != prev_B: # Boat moved
-            if B == 0: # Boat moved from Left to Right
-                m_on_boat = prev_M_L - M_L
-                c_on_boat = prev_C_L - C_L
-            else: # Boat moved from Right to Left
-                m_on_boat = M_L - prev_M_L
-                c_on_boat = C_L - prev_C_L
-
-    # Draw missionaries and cannibals on left bank
-    m_left_bank_count = M_L
-    c_left_bank_count = C_L
-
-    if previous_state and current_state[2] != previous_state[2]: # Boat is moving
-        if current_state[2] == 0: # Boat moving from Left to Right
-            # Characters that were on the left bank but are now on the boat
-            m_left_bank_count = M_L + m_on_boat
-            c_left_bank_count = C_L + c_on_boat
-        else: # Boat moving from Right to Left
-            # Characters that are moving to the left bank from the boat
-            pass # M_L and C_L already reflect the final state on the left bank
-
-    for i in range(m_left_bank_count):
-        pygame.draw.circle(screen, (255, 0, 0), left_bank_positions_m[i], 10) # Red for missionaries
-    for i in range(c_left_bank_count):
-        pygame.draw.circle(screen, (0, 0, 255), left_bank_positions_c[i], 10) # Blue for cannibals
-
-    # Draw missionaries and cannibals on right bank
-    m_right_bank_count = M_R
-    c_right_bank_count = C_R
-
-    if previous_state and current_state[2] != previous_state[2]: # Boat is moving
-        if current_state[2] == 1: # Boat moving from Right to Left
-            # Characters that were on the right bank but are now on the boat
-            m_right_bank_count = M_R + m_on_boat
-            c_right_bank_count = C_R + c_on_boat
-        else: # Boat moving from Left to Right
-            # Characters that are moving to the right bank from the boat
-            pass # M_R and C_R already reflect the final state on the right bank
-
-    for i in range(m_right_bank_count):
-        pygame.draw.circle(screen, (255, 0, 0), right_bank_positions_m[i], 10)
-    for i in range(c_right_bank_count):
-        pygame.draw.circle(screen, (0, 0, 255), right_bank_positions_c[i], 10)
-
-    # Draw missionaries and cannibals on the boat
-    for i in range(m_on_boat):
-        pygame.draw.circle(screen, (255, 0, 0), boat_positions_m[i], 10)
-    for i in range(c_on_boat):
-        pygame.draw.circle(screen, (0, 0, 255), boat_positions_c[i], 10)
-
-def run_algorithm():
-    global current_path, current_step, is_playing, metrics, selected_algo
-    solver = ALGORITHMS[selected_algo]
-    path, nodes, time_ms = solver()
-    current_path = path
-    current_step = 0
-    is_playing = True
-
-    # Update metrics
-    if path:
-        metrics["path_len"] = str(len(path) - 1)
-        metrics["nodes"] = str(nodes)
-        metrics["time"] = f"{time_ms:.2f}"
-    else:
-        metrics = {"path_len": "No sol", "nodes": str(nodes), "time": f"{time_ms:.2f}"}
-
-# Main loop
-running = True
-while running:
-    current_time = pygame.time.get_ticks()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            if game_state == MENU:
-                # Handle menu key presses
-                if event.key == pygame.K_1:
-                    selected_algo = algo_names[0]
-                    run_algorithm()
-                    game_state = SIMULATION
-                elif event.key == pygame.K_2:
-                    selected_algo = algo_names[1]
-                    run_algorithm()
-                    game_state = SIMULATION
-                elif event.key == pygame.K_3:
-                    selected_algo = algo_names[2]
-                    run_algorithm()
-                    game_state = SIMULATION
-                elif event.key == pygame.K_4:
-                    selected_algo = algo_names[3]
-                    run_algorithm()
-                    game_state = SIMULATION
-            elif game_state == SIMULATION:
-                # Handle simulation key presses
-                if event.key == pygame.K_SPACE and current_path:
-                    if current_step < len(current_path) - 1:
-                        current_step += 1
-                elif event.key == pygame.K_r:
-                    run_algorithm()
-                elif event.key == pygame.K_LEFT:
-                    current_algo_index = (current_algo_index - 1) % len(algo_names)
-                    selected_algo = algo_names[current_algo_index]
-                    run_algorithm() # Rerun with new algorithm
-                elif event.key == pygame.K_RIGHT:
-                    current_algo_index = (current_algo_index + 1) % len(algo_names)
-                    selected_algo = algo_names[current_algo_index]
-                    run_algorithm() # Rerun with new algorithm
-                elif event.key == pygame.K_p:
-                    is_paused = not is_paused # Toggle pause state
-                elif event.key == pygame.K_ESCAPE:
-                    running = False
-
-    if game_state == SIMULATION:
-        # Auto-advance if playing
-        if is_playing and not is_paused and current_path and current_step < len(current_path) - 1:
-            # Draw
-            if current_path and current_step < len(current_path):
-                current_s = current_path[current_step]
-                previous_s = current_path[current_step - 1] if current_step > 0 else None
-
-                # Update step for next frame if playing and not paused
-                if is_playing and not is_paused and current_time - last_move_time > speed:
-                    current_step += 1
-                    last_move_time = current_time
-
-            # Calculate animation progress for boat movement
-            animation_progress = 0.0
-            if previous_s and current_s[2] != previous_s[2]: # If boat is moving
-                elapsed_time = current_time - last_move_time
-                animation_progress = min(1.0, elapsed_time / speed)
-
-            draw_scene(current_s, previous_s, animation_progress)
-        else:
-            screen.fill(WHITE)
-            draw_scene((3, 3, 1))  # default start
-
-        # Draw metrics dashboard (right side)
-        pygame.draw.rect(screen, GRAY, (WIDTH - 250, 0, 250, HEIGHT))
+        self.current_state = INITIAL_STATE
+        self.animation_speed = 0.02  # seconds per frame
+        self.is_animating = False
         
-        # Display selected algorithm
-        algo_text = font.render(f"Algorithm: {selected_algo}", True, BLACK)
-        screen.blit(algo_text, (WIDTH - 240, 20))
+        # Metrics
+        self.metrics = None
+        self.metrics_visible = False
+        self.metrics_btn_id = None
 
-        y = 50
-        for label, value in [("Path Length", metrics["path_len"]), 
-                             ("Nodes Explored", metrics["nodes"]), 
-                             ("Time (ms)", metrics["time"])]:
-            text = font.render(f"{label}: {value}", True, BLACK)
-            screen.blit(text, (WIDTH - 240, y))
-            y += 40
-    else: # MENU state
-        screen.fill(WHITE)
-        title_text = font.render("Select an Algorithm", True, BLACK)
-        screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 4))
+        # Controls
+        self.is_paused = False
+        self.control_ids = []
 
-        y_offset = HEIGHT // 2
-        for i, algo_name in enumerate(algo_names):
-            menu_text = font.render(f"{i+1}. {algo_name}", True, BLACK)
-            screen.blit(menu_text, (WIDTH // 2 - menu_text.get_width() // 2, y_offset + i * 40))
+        self.show_start_menu()
 
-    pygame.display.flip()
-    clock.tick(60)
+    def show_start_menu(self):
+        self.canvas.delete("all")
+        self.draw_background()
+        
+        # Title
+        self.canvas.create_text(400, 150, text="River Crossing Problem", font=("Helvetica", 36, "bold"), fill="white", tags="menu")
+        self.canvas.create_text(400, 200, text="Choose an Algorithm to Solve", font=("Helvetica", 18), fill="white", tags="menu")
 
-pygame.quit()
-sys.exit()
+        # Buttons
+        y_start = 250
+        for i, (name, solver) in enumerate(self.solvers.items()):
+            btn_y = y_start + i * 60
+            self.create_button(400, btn_y, name, lambda s=name: self.run_simulation(s))
+            
+        # Run All Algorithms Button
+        self.create_button(400, y_start + 4 * 60, "Compare All Algorithms", self.run_all_algorithms, bg_color="#2F4F4F")
+
+    def create_button(self, x, y, text, command, bg_color="#333"):
+        # Simple custom button on canvas
+        btn_width = 300
+        btn_height = 40
+        x1, y1 = x - btn_width // 2, y - btn_height // 2
+        x2, y2 = x + btn_width // 2, y + btn_height // 2
+        
+        btn_id = self.canvas.create_rectangle(x1, y1, x2, y2, fill=bg_color, outline="white", width=2, tags="menu_btn")
+        txt_id = self.canvas.create_text(x, y, text=text, font=("Helvetica", 14, "bold"), fill="white", tags="menu_btn")
+        
+        # Bind events
+        self.canvas.tag_bind(btn_id, "<Button-1>", lambda e: command())
+        self.canvas.tag_bind(txt_id, "<Button-1>", lambda e: command())
+        
+        # Hover effect
+        self.canvas.tag_bind(btn_id, "<Enter>", lambda e: self.canvas.itemconfig(btn_id, fill="#555"))
+        self.canvas.tag_bind(btn_id, "<Leave>", lambda e: self.canvas.itemconfig(btn_id, fill=bg_color))
+
+    def draw_background(self):
+        # Sky
+        self.canvas.create_rectangle(0, 0, 800, 300, fill=COLOR_SKY, outline="")
+        # River
+        self.canvas.create_rectangle(0, 300, 800, 600, fill=COLOR_RIVER, outline="")
+        # Left Bank
+        self.canvas.create_rectangle(0, 300, 250, 600, fill=COLOR_LAND, outline="")
+        # Right Bank
+        self.canvas.create_rectangle(550, 300, 800, 600, fill=COLOR_LAND, outline="")
+        
+        # Sun
+        self.canvas.create_oval(650, 50, 750, 150, fill="#FFD700", outline="#FFA500", width=2)
+        
+        # Clouds
+        self.draw_cloud(100, 80)
+        self.draw_cloud(250, 50)
+        self.draw_cloud(450, 90)
+        self.draw_cloud(50, 150)
+
+    def draw_cloud(self, x, y):
+        # Draw a fluffy cloud using overlapping ovals
+        self.canvas.create_oval(x, y, x+40, y+30, fill="white", outline="", tags="background")
+        self.canvas.create_oval(x+20, y-10, x+60, y+30, fill="white", outline="", tags="background")
+        self.canvas.create_oval(x+40, y, x+80, y+30, fill="white", outline="", tags="background")
+
+    def run_all_algorithms(self):
+        self.canvas.delete("all")
+        self.draw_background()
+        
+        # Loading
+        self.canvas.create_text(400, 300, text="Running all algorithms...", font=("Helvetica", 24), fill="white", tags="loading")
+        self.root.update()
+        
+        results = []
+        for name, solver in self.solvers.items():
+            try:
+                path, nodes, time_taken = solver()
+                # path length = moves = len(path) - 1 if path else "N/A"
+                pl = len(path) - 1 if path else "Fail"
+                results.append((name, pl, nodes, time_taken * 1000))
+            except Exception as e:
+                results.append((name, "Error", 0, 0.0))
+        
+        self.canvas.delete("loading")
+        self.show_comparison_view(results)
+
+    def show_comparison_view(self, results):
+        self.canvas.delete("all")
+        self.draw_background()
+        
+        self.canvas.create_text(400, 50, text="Algorithm Comparison", font=("Helvetica", 32, "bold"), fill="black")
+        
+        # Headers
+        headers = ["Algorithm", "Path Length", "Nodes Explored", "Time (ms)"]
+        y_start = 120
+        x_offsets = [150, 300, 480, 650]
+        
+        for i, h in enumerate(headers):
+            self.canvas.create_text(x_offsets[i], y_start, text=h, font=("Arial", 14, "bold"), fill="#FFD700")
+            
+        self.canvas.create_line(50, y_start + 20, 750, y_start + 20, fill="black", width=2)
+        
+        # Rows
+        row_y = y_start + 50
+        for res in results:
+            name, pl, nodes, time_ms = res
+            
+            # Format time
+            t_str = f"{time_ms:.2f}"
+            
+            self.canvas.create_text(x_offsets[0], row_y, text=name, font=("Arial", 12), fill="black")
+            self.canvas.create_text(x_offsets[1], row_y, text=str(pl), font=("Arial", 12), fill="black")
+            self.canvas.create_text(x_offsets[2], row_y, text=str(nodes), font=("Arial", 12), fill="black")
+            self.canvas.create_text(x_offsets[3], row_y, text=t_str, font=("Arial", 12), fill="black")
+            
+            row_y += 40
+            
+        # Back Button
+        self.create_button(400, 500, "Main Menu", self.show_start_menu)
+
+    def run_simulation(self, algo_name):
+        print(f"Running {algo_name}...")
+        self.canvas.delete("menu")
+        self.canvas.delete("menu_btn")
+        
+        # Show loading or preparing info
+        self.canvas.create_text(400, 300, text=f"Solving with {algo_name}...", font=("Helvetica", 24), fill="white", tags="loading")
+        self.root.update()
+
+        solver_func = self.solvers[algo_name]
+        try:
+            path, nodes, time_taken = solver_func()
+        except Exception as e:
+            messagebox.showerror("Error", f"Algorithm failed: {e}")
+            self.show_start_menu()
+            return
+
+        self.canvas.delete("loading")
+        
+        if not path:
+            messagebox.showinfo("Result", "No solution found.")
+            self.show_start_menu()
+            return
+            
+        print(f"Solution found: {len(path)} steps")
+        
+        # Store metrics
+        self.metrics = {
+            "Algo": algo_name,
+            "Path Length": len(path) - 1,
+            "Nodes Explored": nodes,
+            "Time": f"{time_taken * 1000:.2f} ms"
+        }
+        
+        self.create_metrics_button()
+        self.create_control_buttons()
+        
+        # Display Algorithm Title
+        self.canvas.create_text(400, 30, text=f"Algorithm: {algo_name}", font=("Helvetica", 20, "bold"), fill="white", tags="ui")
+        
+        self.is_paused = False
+        self.animate_solution(path)
+
+    def create_metrics_button(self):
+        # Top-left button
+        x, y = 60, 30
+        self.metrics_btn_id = self.canvas.create_rectangle(x-50, y-15, x+50, y+15, fill="#555", outline="white", tags="ui")
+        txt_id = self.canvas.create_text(x, y, text="Metrics", fill="white", font=("Arial", 10, "bold"), tags="ui")
+        
+        self.canvas.tag_bind(self.metrics_btn_id, "<Button-1>", lambda e: self.toggle_metrics())
+        self.canvas.tag_bind(txt_id, "<Button-1>", lambda e: self.toggle_metrics())
+
+    def create_control_buttons(self):
+        # Bottom area controls
+        y_pos = 570
+        
+        # Pause/Resume
+        self.create_mini_button(300, y_pos, "Pause/Resume", self.toggle_pause)
+        # Reset
+        self.create_mini_button(400, y_pos, "Reset", self.reset_simulation)
+        # Exit
+        self.create_mini_button(500, y_pos, "End Game", self.exit_app, color="#8B0000")
+
+    def create_mini_button(self, x, y, text, command, color="#444"):
+        w, h = 90, 30
+        bid = self.canvas.create_rectangle(x-w//2, y-h//2, x+w//2, y+h//2, fill=color, outline="white", tags="controls")
+        tid = self.canvas.create_text(x, y, text=text, fill="white", font=("Arial", 10), tags="controls")
+        
+        self.canvas.tag_bind(bid, "<Button-1>", lambda e: command())
+        self.canvas.tag_bind(tid, "<Button-1>", lambda e: command())
+        self.canvas.tag_bind(bid, "<Enter>", lambda e: self.canvas.itemconfig(bid, fill="#666"))
+        self.canvas.tag_bind(bid, "<Leave>", lambda e: self.canvas.itemconfig(bid, fill=color))
+
+    def toggle_pause(self):
+        self.is_paused = not self.is_paused
+
+    def reset_simulation(self):
+        self.is_animating = False
+        self.canvas.delete("ui")
+        self.canvas.delete("controls")
+        self.canvas.delete("metrics_overlay")
+        self.show_start_menu()
+
+    def exit_app(self):
+        self.root.destroy()
+
+
+    def toggle_metrics(self):
+        self.metrics_visible = not self.metrics_visible
+        if self.metrics_visible:
+            self.draw_metrics_overlay()
+        else:
+            self.canvas.delete("metrics_overlay")
+
+    def draw_metrics_overlay(self):
+        self.canvas.delete("metrics_overlay")
+        if not self.metrics:
+            return
+            
+        # Draw semi-transparent box
+        x1, y1 = 10, 60
+        x2, y2 = 250, 180
+        
+        # Canvas doesn't support alpha directly for shapes easily without images or extra windows.
+        # We'll simulate it with stipple or just solid color.
+        self.canvas.create_rectangle(x1, y1, x2, y2, fill="#222", outline="white", width=2, tags="metrics_overlay")
+        
+        y_text = y1 + 20
+        for key, value in self.metrics.items():
+            text = f"{key}: {value}"
+            self.canvas.create_text(x1 + 10, y_text, text=text, anchor="w", fill="white", font=("Courier", 12), tags="metrics_overlay")
+            y_text += 25
+
+
+    def draw_entities(self, state):
+        # Static draw for start/end
+        # Use draw_scene_phase with empty movers to just draw the state static
+        self.draw_scene_phase("cross", state, [], "LtoR", 0.0)
+
+    def draw_character(self, x, y, char_type, color):
+        if char_type == "M":
+            self.draw_missionary(x, y)
+        else:
+            self.draw_cannibal(x, y)
+
+    def draw_missionary(self, x, y):
+        # Draw Missionary (Robe style)
+        # Head
+        self.canvas.create_oval(x-8, y-35, x+8, y-19, fill="#FFCCAA", outline="black", tags="entity") # Skin head
+        
+        # Body (Robe)
+        # Triangle/Trapezoid shape
+        points = [x, y-20, x-12, y+10, x+12, y+10]
+        self.canvas.create_polygon(points, fill=COLOR_MISSIONARY, outline="black", tags="entity")
+        
+        # Cross on chest
+        self.canvas.create_line(x, y-15, x, y, fill="black", width=1, tags="entity")
+        self.canvas.create_line(x-5, y-10, x+5, y-10, fill="black", width=1, tags="entity")
+
+    def draw_cannibal(self, x, y):
+        # Draw Cannibal (Tribal style)
+        # Head
+        self.canvas.create_oval(x-8, y-35, x+8, y-19, fill="#D2691E", outline="black", tags="entity") # Darker skin head
+        
+        # Body (Torso)
+        self.canvas.create_oval(x-10, y-20, x+10, y+5, fill="#8B4513", outline="black", tags="entity") # Body
+        
+        # Skirt/Loincloth
+        skirt_points = [x-10, y, x+10, y, x+8, y+10, x-8, y+10]
+        self.canvas.create_polygon(skirt_points, fill=COLOR_CANNIBAL, outline="black", tags="entity")
+        
+        # Spear (held in hand)
+        self.canvas.create_line(x+10, y+10, x+15, y-25, fill="brown", width=2, tags="entity") # Shaft
+        self.canvas.create_polygon(x+14, y-25, x+16, y-25, x+15, y-30, fill="silver", outline="black", tags="entity") # Tip
+
+
+    def animate_solution(self, path):
+        self.is_animating = True
+        self.animate_sequence(path, 0)
+        
+    def animate_sequence(self, path, index):
+        if not self.is_animating:
+            return
+
+        if index >= len(path) - 1:
+            self.draw_entities(path[-1])
+            self.show_success()
+            return
+            
+        current_state = path[index]
+        next_state = path[index+1]
+        
+        self.start_transition(current_state, next_state, path, index)
+
+    def start_transition(self, curr_state, next_state, path, index):
+        # Determine movement details
+        c_m, c_c, c_b = curr_state
+        n_m, n_c, n_b = next_state
+        
+        m_moved_count = abs(c_m - n_m)
+        c_moved_count = abs(c_c - n_c)
+        direction = "LtoR" if c_b == 1 else "RtoL"
+        
+        passengers = []
+        # Identify who moves (simplification: take from end of lists)
+        # We need (type, from_pos, to_pos)
+        
+        # Boat seats (indices)
+        seat_indices = []
+        if m_moved_count + c_moved_count == 1:
+            seat_indices = [0] # Center-ish? Or use 0 (left seat)
+        elif m_moved_count + c_moved_count == 2:
+            seat_indices = [0, 1]
+            
+        # Assign seats
+        seat_idx = 0
+        
+        # Source Bank Counts (for coordinate calculation)
+        if direction == "LtoR":
+            # Leaving Left Bank
+            # Missionaries taking last spots
+            src_m_start_idx = c_m - m_moved_count
+            src_c_start_idx = c_c - c_moved_count
+            bank_side = "left"
+        else:
+            # Leaving Right Bank
+            src_m_start_idx = (3-c_m) - m_moved_count # Right bank M count = 3 - c_m
+            src_c_start_idx = (3-c_c) - c_moved_count
+            bank_side = "right"
+
+        # Build movement list
+        # Each item: {"type": "M" or "C", "bank_idx": int, "seat_idx": int}
+        movers = []
+        
+        for i in range(m_moved_count):
+            movers.append({"type": "M", "bank_idx": src_m_start_idx + i, "seat_idx": seat_indices[seat_idx]})
+            seat_idx += 1
+            
+        for i in range(c_moved_count):
+            movers.append({"type": "C", "bank_idx": src_c_start_idx + i, "seat_idx": seat_indices[seat_idx]})
+            seat_idx += 1
+
+        # Phase 1: Embark
+        self.run_embark(curr_state, next_state, movers, direction, 0.0, path, index)
+
+    def run_embark(self, curr_state, next_state, movers, direction, progress, path, index):
+        if not self.is_animating: return
+        if self.is_paused:
+            self.root.after(100, lambda: self.run_embark(curr_state, next_state, movers, direction, progress, path, index))
+            return
+
+        if progress > 1.0: progress = 1.0
+        
+        # Draw Embarking
+        self.draw_scene_phase("embark", curr_state, movers, direction, progress)
+        
+        if progress < 1.0:
+            self.root.after(20, lambda: self.run_embark(curr_state, next_state, movers, direction, progress + 0.05, path, index))
+        else:
+            # Done, start Crossing
+            self.run_cross(curr_state, next_state, movers, direction, 0.0, path, index)
+
+    def run_cross(self, curr_state, next_state, movers, direction, progress, path, index):
+        if not self.is_animating: return
+        if self.is_paused:
+            self.root.after(100, lambda: self.run_cross(curr_state, next_state, movers, direction, progress, path, index))
+            return
+
+        if progress > 1.0: progress = 1.0
+        
+        self.draw_scene_phase("cross", curr_state, movers, direction, progress)
+        
+        if progress < 1.0:
+            self.root.after(20, lambda: self.run_cross(curr_state, next_state, movers, direction, progress + 0.02, path, index))
+        else:
+            self.run_disembark(curr_state, next_state, movers, direction, 0.0, path, index)
+
+    def run_disembark(self, curr_state, next_state, movers, direction, progress, path, index):
+        if not self.is_animating: return
+        if self.is_paused:
+            self.root.after(100, lambda: self.run_disembark(curr_state, next_state, movers, direction, progress, path, index))
+            return
+
+        if progress > 1.0: progress = 1.0
+        
+        self.draw_scene_phase("disembark", curr_state, movers, direction, progress)
+        
+        if progress < 1.0:
+            self.root.after(20, lambda: self.run_disembark(curr_state, next_state, movers, direction, progress + 0.05, path, index))
+        else:
+            # Finished full step
+            self.animate_sequence(path, index + 1)
+
+    def draw_scene_phase(self, phase, state, movers, direction, progress):
+        self.canvas.delete("entity")
+        
+        m_left, c_left, boat_pos = state
+        
+        # Static counts (What remains on bank throughout)
+        # Assuming movers are "removed" from state for drawing
+        # If phase is embark, they are moving from bank to boat.
+        # So static = original - moving
+        
+        num_m_moving = len([x for x in movers if x["type"] == "M"])
+        num_c_moving = len([x for x in movers if x["type"] == "C"])
+        
+        # Calculate Static Entities on Banks
+        if direction == "LtoR":
+            static_m_l = m_left - num_m_moving
+            static_c_l = c_left - num_c_moving
+            static_m_r = 3 - m_left
+            static_c_r = 3 - c_left
+            boat_start_x = 260
+            boat_end_x = 540
+            bank_side = "left" # source
+        else:
+            # RtoL
+            static_m_l = m_left
+            static_c_l = c_left
+            static_m_r = (3 - m_left) - num_m_moving # Right bank has total 3-m_left. 
+            static_c_r = (3 - c_left) - num_c_moving
+            boat_start_x = 540
+            boat_end_x = 260
+            bank_side = "right" # source
+
+        # 1. Draw Static Groups
+        self.draw_group(100, 350, static_m_l, static_c_l)
+        self.draw_group(700, 350, static_m_r, static_c_r)
+        
+        # 2. Draw Boat
+        boat_y = 500
+        if phase == "embark":
+            boat_x = boat_start_x
+        elif phase == "disembark":
+            boat_x = boat_end_x
+        else: # cross
+            boat_x = boat_start_x + (boat_end_x - boat_start_x) * progress
+
+        self.draw_boat(boat_x, boat_y)
+        
+        # 3. Draw Movers
+        for mover in movers:
+            char_type = mover["type"]
+            bank_idx = mover["bank_idx"]
+            seat_idx = mover["seat_idx"]
+            
+            # Get Coordinates
+            # Boat Seat Coords (Relative to boat center)
+            offsets = [-20, 20] 
+            offset = offsets[seat_idx] if seat_idx < len(offsets) else 0
+            seat_x = boat_x + offset
+            seat_y = boat_y - 20
+            
+            # Bank Coords
+            bx, by = self.get_bank_coords(bank_side if phase != "disembark" else ("right" if bank_side=="left" else "left"), 
+                                          char_type, bank_idx)
+            
+            # If Disembarking, destination is opposite bank
+            # Logic check:
+            # Embark: Source Bank -> Boat (Boat Static)
+            # Cross: Boat -> Boat (Passenger Fixed on Boat)
+            # Disembark: Boat -> Dest Bank (Boat Static)
+            
+            draw_x, draw_y = 0, 0
+            
+            if phase == "embark":
+                # Interp Bank -> Seat
+                bx, by = self.get_bank_coords(bank_side, char_type, bank_idx)
+                
+                # Ease out
+                t = progress
+                draw_x = bx + (seat_x - bx) * t
+                draw_y = by + (seat_y - by) * t
+                
+            elif phase == "cross":
+                # Fixed values on boat
+                draw_x = seat_x
+                draw_y = seat_y
+                
+            elif phase == "disembark":
+                # Interp Left Seat -> Right Bank
+                dest_side = "right" if direction == "LtoR" else "left"
+                
+                # We need destination index.
+                # If LtoR, moving to Right Bank. existing right bank has static_m_r.
+                # So new items append after static_m_r.
+                # Actually, simplistic view: just append to end of existing list on dest.
+                
+                # We need to map *which* mover goes to *which* dest index.
+                # Simple stack: if type M, index = static_m_dest + (0, 1..)
+                # But we are iterating movers. We need to know order.
+                # Let's recalculate dest index on fly or precalc.
+                
+                # Hacky: Assume calculate dest_idx based on current static + order in movers
+                # But movers mixed M/C.
+                # Let's count seen Ms and Cs in this loop? No, that resets every frame.
+                # Use mover list index?
+                pass
+                
+                # Better: calculate dest_idx dynamically
+                if char_type == "M":
+                    # How many Ms before me in movers?
+                    my_m_order = len([m for m in movers[:movers.index(mover)] if m["type"]=="M"])
+                    
+                    if dest_side == "right": dest_start = static_m_r
+                    else: dest_start = static_m_l
+                    
+                    dest_idx = dest_start + my_m_order
+                else:
+                    my_c_order = len([m for m in movers[:movers.index(mover)] if m["type"]=="C"])
+                    if dest_side == "right": dest_start = static_c_r
+                    else: dest_start = static_c_l
+                    dest_idx = dest_start + my_c_order
+                
+                bx, by = self.get_bank_coords(dest_side, char_type, dest_idx)
+                
+                t = progress
+                draw_x = seat_x + (bx - seat_x) * t
+                draw_y = seat_y + (by - seat_y) * t
+            
+            self.draw_character(draw_x, draw_y, char_type, COLOR_MISSIONARY if char_type=="M" else COLOR_CANNIBAL)
+
+    def get_bank_coords(self, side, char_type, index):
+        # 100, 350
+        if side == "left":
+            base_x = 100
+        else:
+            base_x = 700
+            
+        spacing = 30
+        
+        # M: start_y = 350
+        # C: start_y = 450
+        
+        start_y = 350 if char_type == "M" else 450
+        
+        x = base_x - 50 + (index % 3) * spacing
+        y = start_y + (index // 3) * 60
+        
+        return x, y
+
+    def draw_boat(self, x, y):
+        # Draw realistic boat (Wooden Trapezoid)
+        # Hull
+        hull_points = [x-60, y-10, x+60, y-10, x+40, y+20, x-40, y+20]
+        self.canvas.create_polygon(hull_points, fill=COLOR_BOAT, outline="black", width=2, tags="entity")
+        
+        # Wood planks details
+        self.canvas.create_line(x-55, y, x+55, y, fill="#5C3317", width=1, tags="entity")
+        self.canvas.create_line(x-48, y+10, x+48, y+10, fill="#5C3317", width=1, tags="entity")
+        
+        # Label
+        self.canvas.create_text(x, y+5, text="BOAT", fill="white", font=("Arial", 8, "bold"), tags="entity")
+
+
+    def draw_group(self, bank_x, start_y, m_count, c_count):
+        spacing = 30
+        # Draw Ms
+        for i in range(m_count):
+            x = bank_x - 50 + (i % 3) * spacing
+            y = start_y + (i // 3) * 60
+            self.draw_character(x, y, "M", COLOR_MISSIONARY)
+            
+        # Draw Cs
+        for i in range(c_count):
+            x = bank_x - 50 + (i % 3) * spacing
+            y = start_y + 100 + (i // 3) * 60
+            self.draw_character(x, y, "C", COLOR_CANNIBAL)
+
+    def show_success(self):
+        self.is_animating = False
+        self.canvas.create_text(400, 200, text="Goal Reached!", font=("Helvetica", 32, "bold"), fill="lightgreen", tags="overlay")
+        # Reuse reset logic for "Main Menu" button or just leave controls
+        self.create_button(400, 350, "Main Menu", lambda: self.reset_simulation())
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = RiverCrossingApp(root)
+    root.mainloop()
