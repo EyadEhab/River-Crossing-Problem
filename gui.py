@@ -1,5 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
+import os
+import pygame
+from tkinter import messagebox
 import time
 import math
 from typing import List, Tuple
@@ -50,6 +53,13 @@ class RiverCrossingApp:
         # Controls
         self.is_paused = False
         self.control_ids = []
+
+
+        # Audio System
+        self.init_audio()
+
+        # Volume Control Slider (Persistent)
+        self.create_volume_slider()
 
         self.show_start_menu()
 
@@ -252,7 +262,57 @@ class RiverCrossingApp:
         self.show_start_menu()
 
     def exit_app(self):
+        pygame.mixer.quit()
         self.root.destroy()
+    
+    def init_audio(self):
+        try:
+            pygame.mixer.init()
+            sound_path = os.path.join("sound", "test.mpeg")
+            if os.path.exists(sound_path):
+                pygame.mixer.music.load(sound_path)
+                pygame.mixer.music.play(-1)  # Loop indefinitely
+                pygame.mixer.music.set_volume(0.5)
+            else:
+                print(f"Warning: Sound file not found at {sound_path}")
+        except Exception as e:
+            print(f"Audio init error: {e}")
+
+    def create_volume_slider(self):
+        # Create a "Volume" button
+        self.vol_btn = tk.Button(self.root, text="Volume", command=self.toggle_volume_slider,
+                                 bg="#444", fg="white", font=("Arial", 10, "bold"), bd=1)
+        self.vol_btn.place(x=720, y=10)
+        
+        # Create the slider but don't place it yet (hidden)
+        self.vol_scale = tk.Scale(self.root, from_=0, to=100, orient=tk.HORIZONTAL, 
+                                  command=self.set_volume, length=150, 
+                                  bg="#87CEEB", fg="white", 
+                                  troughcolor="#FFFFFF", highlightthickness=0, bd=0,
+                                  width=10, showvalue=1)
+        self.vol_scale.set(50)
+        self.vol_visible = False
+
+    def toggle_volume_slider(self):
+        if self.vol_visible:
+            self.vol_scale.place_forget()
+            self.vol_visible = False
+        else:
+            # Place above the sun (Sun is at ~50+ y)
+            # We'll place it to the left of the button, slightly down or just aligned
+            # Button is at x=720. Slider length=150.
+            # Let's put it at x=560, y=15.
+            self.vol_scale.place(x=560, y=10)
+            self.vol_visible = True
+
+    def set_volume(self, val):
+        try:
+            # Convert 0-100 to 0.0-1.0
+            volume = float(val) / 100.0
+            pygame.mixer.music.set_volume(volume)
+        except Exception:
+            pass
+
 
 
     def toggle_metrics(self):
