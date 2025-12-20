@@ -7,6 +7,7 @@ from search.bfs import solve as bfs_solve
 from search.dfs import solve as dfs_solve
 from search.astar import solve as astar_solve
 from search.greedy import solve as greedy_solve
+from search.csp import solve as csp_solve
 
 from core.river_crossing import GOAL_STATE
 
@@ -24,16 +25,17 @@ def main():
     dfs_path, dfs_nodes, dfs_time = dfs_solve()
     astar_path, astar_nodes, astar_time = astar_solve()
     greedy_path, greedy_nodes, greedy_time = greedy_solve()
+    csp_path, csp_nodes, csp_time = csp_solve()
 
     # Validate all found the goal
-    all_paths = [bfs_path, dfs_path, astar_path, greedy_path]
+    all_paths = [bfs_path, dfs_path, astar_path, greedy_path, csp_path]
     for i, path in enumerate(all_paths):
         final_state = None
         if path:
             final_state = path[-1]
 
         if not path or final_state != GOAL_STATE:
-            algo_names = ["BFS", "DFS", "A*", "Greedy"]
+            algo_names = ["BFS", "DFS", "A*", "Greedy", "CSP"]
             print(f"⚠️  Warning: {algo_names[i]} did not reach the goal state!")
 
     # Print results table
@@ -43,6 +45,7 @@ def main():
     print_solution_summary("DFS", dfs_path, dfs_nodes, dfs_time)
     print_solution_summary("A*", astar_path, astar_nodes, astar_time)
     print_solution_summary("Greedy", greedy_path, greedy_nodes, greedy_time)
+    print_solution_summary("CSP", csp_path, csp_nodes, csp_time)
 
     print("\n✅ All algorithms executed.")
 
