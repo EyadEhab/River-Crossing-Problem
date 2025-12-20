@@ -179,6 +179,7 @@ class RiverCrossingApp:
         self.create_button(400, 500, "Main Menu", self.show_start_menu)
 
     def run_simulation(self, algo_name):
+        self.current_algo_name = algo_name
         print(f"Running {algo_name}...")
         self.canvas.delete("menu")
         self.canvas.delete("menu_btn")
@@ -235,11 +236,9 @@ class RiverCrossingApp:
         y_pos = 570
         
         # Pause/Resume
-        self.create_mini_button(300, y_pos, "Pause/Resume", self.toggle_pause)
-        # Reset
-        self.create_mini_button(400, y_pos, "Reset", self.reset_simulation)
-        # Exit
-        self.create_mini_button(500, y_pos, "End Game", self.exit_app, color="#8B0000")
+        self.create_mini_button(350, y_pos, "Pause/Resume", self.toggle_pause)
+        # End Game (Formerly Reset) -> Goes to Menu
+        self.create_mini_button(450, y_pos, "End Game", self.reset_simulation, color="#8B0000")
 
     def create_mini_button(self, x, y, text, command, color="#444"):
         w, h = 90, 30
@@ -253,6 +252,16 @@ class RiverCrossingApp:
 
     def toggle_pause(self):
         self.is_paused = not self.is_paused
+
+    def restart_simulation(self):
+        if hasattr(self, 'current_algo_name') and self.current_algo_name:
+            self.is_animating = False
+            self.canvas.delete("ui")
+            self.canvas.delete("controls")
+            self.canvas.delete("metrics_overlay")
+            self.canvas.delete("entity")
+            self.canvas.delete("overlay")
+            self.run_simulation(self.current_algo_name)
 
     def reset_simulation(self):
         self.is_animating = False
@@ -345,7 +354,9 @@ class RiverCrossingApp:
     def draw_entities(self, state):
         # Static draw for start/end
         # Use draw_scene_phase with empty movers to just draw the state static
-        self.draw_scene_phase("cross", state, [], "LtoR", 0.0)
+        # boat_pos 1=Left, 0=Right.
+        direction = "LtoR" if state[2] == 1 else "RtoL"
+        self.draw_scene_phase("cross", state, [], direction, 0.0)
 
     def draw_character(self, x, y, char_type, color):
         if char_type == "M":
@@ -698,7 +709,10 @@ class RiverCrossingApp:
         self.is_animating = False
         self.canvas.create_text(400, 200, text="Goal Reached!", font=("Helvetica", 32, "bold"), fill="lightgreen", tags="overlay")
         # Reuse reset logic for "Main Menu" button or just leave controls
+        # Reuse reset logic for "Main Menu" button or just leave controls
         self.create_button(400, 350, "Main Menu", lambda: self.reset_simulation())
+        # Restart button below Main Menu
+        self.create_button(400, 410, "Restart Game", lambda: self.restart_simulation())
 
 if __name__ == "__main__":
     root = tk.Tk()
