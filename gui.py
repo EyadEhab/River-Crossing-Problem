@@ -457,11 +457,11 @@ class RiverCrossingApp:
         if c_moved_count > 0:
             parts.append(f"{c_moved_count} Cannibal" if c_moved_count == 1 else f"{c_moved_count} Cannibals")
             
-        move_text = ", ".join(parts)
+        move_text_content = ", ".join(parts)
         if direction == "LtoR":
-            move_text += " -> Right"
+            move_text = f"{move_text_content} -> Right"
         else:
-            move_text += " -> Left"
+            move_text = f"Left <- {move_text_content}"
 
         # Phase 1: Embark
         self.run_embark(curr_state, next_state, movers, direction, 0.0, path, index, move_text)
