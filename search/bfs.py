@@ -1,99 +1,73 @@
-from typing import Literal
-
-
 from core.river_crossing import *
 from collections import deque
 import time
 
 
 def solve():
-    """
-    Solve the Missionaries and Cannibals problem using Breadth-First Search (BFS).
-
-    Returns:
-        tuple: (nodes_explored, solution_path, execution_time)
-            - nodes_explored: The number of nodes explored during the search.
-            - solution_path: list of states [state1, state2, ...]
-            - execution_time: wall-clock time in milliseconds
-    """
     start_time = time.time()
 
-    # BFS setup
-    queue = deque[tuple[Literal[0, 1, 2, 3], Literal[0, 1, 2, 3], Literal[0, 1]]]([INITIAL_STATE])
-    visited = set[tuple[Literal[0, 1, 2, 3], Literal[0, 1, 2, 3], Literal[0, 1]]]([INITIAL_STATE])
-    parent = {INITIAL_STATE: None}  # parent[state] = (prev_state, move_taken)
+    states_to_explore = deque([INITIAL_STATE])
+
+    explored_states = set([INITIAL_STATE])
+
+    came_from = {INITIAL_STATE: None}
+
     nodes_explored = 0
 
-    found = False
-    goal_state = None
+    goal_found = None
 
-    while queue:
-        current_state = queue.popleft()
+    while states_to_explore:
+        current_state = states_to_explore.popleft()
         nodes_explored += 1
 
         if is_goal(current_state):
-            found = True
-            goal_state = current_state
+            goal_found = current_state
             break
 
         for next_state in get_successors(current_state):
-            if next_state not in visited:
-                visited.add(next_state)
-                queue.append(next_state)
-                # Calculate the move that led to next_state
-                move = _calculate_move(current_state, next_state)
-                parent[next_state] = (current_state, move)
+            if next_state not in explored_states:
+                explored_states.add(next_state)
+                states_to_explore.append(next_state)
 
-    execution_time = (time.time() - start_time) * 1000 # Convert to milliseconds
+                move_taken = _calculate_move(current_state, next_state)
+                came_from[next_state] = (current_state, move_taken)
 
-    if not found:
-        return nodes_explored, [], execution_time
+    execution_time = (time.time() - start_time) * 1000
 
-    # Reconstruct the solution path
-    solution_path = _reconstruct_path(parent, goal_state)
+    if goal_found is None:
+        return [], nodes_explored, execution_time
+
+    solution_path = _reconstruct_path(came_from, goal_found)
 
     return solution_path, nodes_explored, execution_time
 
 
-def _calculate_move(from_state, to_state):
-    """
-    Calculate the move (missionaries, cannibals) that transitions from_state to to_state.
+def _calculate_move(start_state, end_state):
+    missionaries_start, cannibals_start, boat_start = start_state
+    missionaries_end, cannibals_end, boat_end = end_state
 
-    Returns:
-        tuple: (missionaries_moved, cannibals_moved)
-    """
-    M_L_from, C_L_from, boat_from = from_state
-    M_L_to, C_L_to, boat_to = to_state
+    if boat_start == 1 and boat_end == 0:
+        missionaries_moved = missionaries_start - missionaries_end
+        cannibals_moved = cannibals_start - cannibals_end
 
-    if boat_from == 1 and boat_to == 0:  # Boat moving from left to right
-        # Missionaries/cannibals moved from left to right
-        m_moved = M_L_from - M_L_to
-        c_moved = C_L_from - C_L_to
-    elif boat_from == 0 and boat_to == 1:  # Boat moving from right to left
-        # Missionaries/cannibals moved from right to left
-        m_moved = M_L_to - M_L_from
-        c_moved = C_L_to - C_L_from
+    elif boat_start == 0 and boat_end == 1:
+        missionaries_moved = missionaries_end - missionaries_start
+        cannibals_moved = cannibals_end - cannibals_start
+
     else:
-        raise ValueError(f"Invalid state transition: {from_state} -> {to_state}")
+        raise ValueError(f"Invalid boat movement: {start_state} -> {end_state}")
 
-    return (m_moved, c_moved)
+    return (missionaries_moved, cannibals_moved)
 
 
-def _reconstruct_path(parent, goal_state):
-    """
-    Reconstruct the solution path from INITIAL_STATE to goal_state using the parent mapping.
-
-    Returns:
-        list: [state1, state2, ...]
-    """
+def _reconstruct_path(came_from, goal_state):
     path = [goal_state]
-    current = goal_state
+    current_state = goal_state
 
-    while parent[current] is not None:
-        prev_state, move = parent[current]
-        path.append(prev_state)
-        current = prev_state
+    while came_from[current_state] is not None:
+        previous_state, move_taken = came_from[current_state]
+        path.append(previous_state)
+        current_state = previous_state
 
-    # Reverse to get path from start to goal
     path.reverse()
     return path
