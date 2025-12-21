@@ -1,55 +1,42 @@
-from typing import Literal
-
-
 from core.river_crossing import *
 import time
 
 
 def solve():
-    """
-    Solve the Missionaries and Cannibals problem using Depth-First Search (DFS).
-
-    Returns:
-        tuple: (nodes_explored, solution_path, execution_time)
-            - nodes_explored: The number of nodes explored during the search.
-            - solution_path: list of states [state1, state2, ...]
-            - execution_time: wall-clock time in milliseconds
-    """
     start_time = time.time()
 
-    # DFS setup
-    stack = [INITIAL_STATE]
-    visited = set[tuple[Literal[0, 1, 2, 3], Literal[0, 1, 2, 3], Literal[0, 1]]]([INITIAL_STATE])
-    parent = {INITIAL_STATE: None}  # parent[state] = (prev_state, move_taken)
+    states_to_explore = [INITIAL_STATE]
+
+    explored_states = set([INITIAL_STATE])
+
+    came_from = {INITIAL_STATE: None}
+
     nodes_explored = 0
 
-    found = False
-    goal_state = None
+    goal_found = None
 
-    while stack:
-        current_state = stack.pop()
+    while states_to_explore:
+        current_state = states_to_explore.pop()
         nodes_explored += 1
 
         if is_goal(current_state):
-            found = True
-            goal_state = current_state
+            goal_found = current_state
             break
 
         for next_state in get_successors(current_state):
-            if next_state not in visited:
-                visited.add(next_state)
-                stack.append(next_state)
-                # Calculate the move that led to next_state
-                move = _calculate_move(current_state, next_state)
-                parent[next_state] = (current_state, move)
+            if next_state not in explored_states:
+                explored_states.add(next_state)
+                states_to_explore.append(next_state)
 
-    execution_time = (time.time() - start_time) * 1000 # Convert to milliseconds
+                move_taken = _calculate_move(current_state, next_state)
+                came_from[next_state] = (current_state, move_taken)
 
-    if not found:
-        return nodes_explored, [], execution_time
+    execution_time = (time.time() - start_time) * 1000
 
-    # Reconstruct the solution path
-    solution_path = _reconstruct_path(parent, goal_state)
+    if goal_found is None:
+        return [], nodes_explored, execution_time
+
+    solution_path = _reconstruct_path(came_from, goal_found)
 
     return solution_path, nodes_explored, execution_time
 
