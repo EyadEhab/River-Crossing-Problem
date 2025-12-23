@@ -4,16 +4,6 @@ import time
 from core.river_crossing import *
 
 
-def _reconstruct(came_from: Dict[Tuple[int, int, int], Optional[Tuple[int, int, int]]],
-                 current: Tuple[int, int, int]) -> List[Tuple[int, int, int]]:
-    path: List[Tuple[int, int, int]] = [current]
-    while came_from[current] is not None:
-        current = came_from[current]  # type: ignore
-        path.append(current)
-    path.reverse()
-    return path
-
-
 def solve() -> Tuple[int, List[Tuple[int, int, int]], float]:
     start_time = time.perf_counter()
     open_heap: List[Tuple[float, Tuple[int, int, int]]] = []
@@ -49,3 +39,11 @@ def solve() -> Tuple[int, List[Tuple[int, int, int]], float]:
     return [], nodes_explored, elapsed_ms
 
 
+def _reconstruct(came_from: Dict[Tuple[int, int, int], Optional[Tuple[int, int, int]]],
+                 current: Tuple[int, int, int]) -> List[Tuple[int, int, int]]:
+    path: List[Tuple[int, int, int]] = [current]
+    while came_from[current] is not None:
+        current = came_from[current]  # type: ignore
+        path.append(current)
+    path.reverse()
+    return path

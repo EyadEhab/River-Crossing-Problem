@@ -12,6 +12,7 @@ from search.bfs import solve as bfs_solve
 from search.dfs import solve as dfs_solve
 from search.astar import solve as astar_solve
 from search.greedy import solve as greedy_solve
+from search.csp import solve as csp_solve
 
 from core.river_crossing import GOAL_STATE, INITIAL_STATE
 
@@ -38,7 +39,8 @@ class RiverCrossingApp:
             "BFS": bfs_solve,
             "DFS": dfs_solve,
             "A*": astar_solve,
-            "Greedy": greedy_solve
+            "Greedy": greedy_solve,
+            "CSP": csp_solve
         }
 
         self.current_state = INITIAL_STATE
@@ -78,7 +80,7 @@ class RiverCrossingApp:
             self.create_button(400, btn_y, name, lambda s=name: self.run_simulation(s))
             
         # Run All Algorithms Button
-        self.create_button(400, y_start + 4 * 60, "Compare All Algorithms", self.run_all_algorithms, bg_color="#2F4F4F")
+        self.create_button(400, y_start + 5 * 60, "Compare All Algorithms", self.run_all_algorithms, bg_color="#2F4F4F")
 
     def create_button(self, x, y, text, command, bg_color="#333"):
         # Simple custom button on canvas

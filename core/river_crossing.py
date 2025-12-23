@@ -97,3 +97,5 @@ def heuristic(state: Tuple[int, int, int]) -> float:
     """
     M_L, C_L, _ = state
     return (M_L + C_L) / 2.0  # Still admissible because real trips >= this value
+
+print(get_successors((1,1,0)))
