@@ -13,7 +13,6 @@ Uses backtracking with forward checking to find a solution.
 
 from core.river_crossing import *
 import time
-from typing import List, Set, Tuple, Optional
 
 
 def solve():
@@ -31,40 +30,36 @@ def solve():
     # Track visited states to avoid cycles (constraint)
     visited = set([INITIAL_STATE])
     
-    # Track nodes explored (each assignment attempt)
-    nodes_explored = [0]  # Using list to allow modification in nested function
-    
     # Start backtracking search from initial state
-    solution_path = _backtrack(INITIAL_STATE, visited, nodes_explored)
+    solution_path, nodes_explored = _backtrack(INITIAL_STATE, visited, 0)
     
     execution_time = (time.time() - start_time) * 1000  # Convert to milliseconds
     
     if solution_path is None:
-        return [], nodes_explored[0], execution_time
+        return [], nodes_explored, execution_time
     
-    return solution_path, nodes_explored[0], execution_time
+    return solution_path, nodes_explored, execution_time
 
 
-def _backtrack(current_state: Tuple[int, int, int], 
-               visited: Set[Tuple[int, int, int]], 
-               nodes_explored: List[int]) -> Optional[List[Tuple[int, int, int]]]:
+def _backtrack(current_state, visited, nodes_explored):
     """
     Recursive backtracking function to find a solution.
     
     Args:
         current_state: Current state in the search
         visited: Set of visited states (to avoid cycles)
-        nodes_explored: Counter for nodes explored (mutable list with single int)
+        nodes_explored: Counter for nodes explored
     
     Returns:
-        List of states from current_state to goal, or None if no solution
+        Tuple of (path, nodes_count) where path is list of states or None, 
+        and nodes_count is the number of nodes explored
     """
     # Increment node counter
-    nodes_explored[0] += 1
+    nodes_explored += 1
     
     # Goal test
     if is_goal(current_state):
-        return [current_state]
+        return [current_state], nodes_explored
     
     M_L, C_L, boat = current_state
     
@@ -80,7 +75,7 @@ def _backtrack(current_state: Tuple[int, int, int],
             new_M_L = M_L + m_move
             new_C_L = C_L + c_move
             new_boat = 1
-        
+
         next_state = (new_M_L, new_C_L, new_boat)
         
         # Check if state is valid and not visited (constraints)
@@ -89,41 +84,15 @@ def _backtrack(current_state: Tuple[int, int, int],
             visited.add(next_state)
             
             # Recursively solve from next_state
-            result = _backtrack(next_state, visited, nodes_explored)
+            result_path, nodes_explored = _backtrack(next_state, visited, nodes_explored)
             
             # If solution found, build path
-            if result is not None:
-                return [current_state] + result
+            if result_path is not None:
+                return [current_state] + result_path, nodes_explored
             
             # Backtrack: undo assignment
             visited.remove(next_state)
     
     # No solution found from this state
-    return None
+    return None, nodes_explored
 
-
-def _calculate_move(from_state: Tuple[int, int, int], 
-                   to_state: Tuple[int, int, int]) -> Tuple[int, int]:
-    """
-    Calculate the move (missionaries, cannibals) that transitions from_state to to_state.
-    
-    Args:
-        from_state: Starting state
-        to_state: Ending state
-    
-    Returns:
-        tuple: (missionaries_moved, cannibals_moved)
-    """
-    M_L_from, C_L_from, boat_from = from_state
-    M_L_to, C_L_to, boat_to = to_state
-    
-    if boat_from == 1 and boat_to == 0:  # Boat moving from left to right
-        m_moved = M_L_from - M_L_to
-        c_moved = C_L_from - C_L_to
-    elif boat_from == 0 and boat_to == 1:  # Boat moving from right to left
-        m_moved = M_L_to - M_L_from
-        c_moved = C_L_to - C_L_from
-    else:
-        raise ValueError(f"Invalid state transition: {from_state} -> {to_state}")
-    
-    return (m_moved, c_moved)
